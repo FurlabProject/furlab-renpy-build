@@ -12,27 +12,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install ccache
+        run: sudo apt-get update && sudo apt-get install -y ccache
+
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: .ccache
-          key: ccache-${{ runner.os }}-${{ github.ref_name }}
+          key: ccache-${{ runner.os }}-arm-${{ hashFiles('**/*.c', '**/*.h', 'prepare.sh', 'build.sh') }}
           restore-keys: |
-            ccache-${{ runner.os }}-
+            ccache-${{ runner.os }}-arm-
 
       - name: Cache renpy tmp
         uses: actions/cache@v4
         with:
           path: tmp
-          key: renpy-tmp-${{ runner.os }}-${{ hashFiles('prepare.sh', 'build.sh') }}
+          key: renpy-tmp-${{ runner.os }}-arm-${{ hashFiles('prepare.sh', 'build.sh') }}
           restore-keys: |
-            renpy-tmp-${{ runner.os }}-
+            renpy-tmp-${{ runner.os }}-arm-
 
       - name: Enable ccache
         run: |
           mkdir -p .ccache
           echo "max_size = 5.0G" > .ccache/ccache.conf
           echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+          echo "CC=ccache clang" >> $GITHUB_ENV
+          echo "CXX=ccache clang++" >> $GITHUB_ENV
           ccache --zero-stats
 
       - run: chmod +x prepare.sh build.sh
