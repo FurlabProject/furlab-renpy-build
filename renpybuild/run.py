@@ -343,17 +343,14 @@ def build_environment(c):
             "-lmockrt",
         )
 
-        c.var("cmake_system_name", "iOS")
+        c.var("cmake_system_name", "Darwin")
         c.var("cmake_system_processor", "aarch64")
 
         c.var(
             "cmake_args",
             "-DCMAKE_SYSROOT={{ cross }}/sdk "
-            "-DCMAKE_OSX_SYSROOT={{ cross }}/sdk "
-            "-DCMAKE_OSX_ARCHITECTURES=arm64 "
             "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
         )
-
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
 
         llvm(
@@ -363,22 +360,28 @@ def build_environment(c):
 
         c.env(
             "CFLAGS",
-            "{{ CFLAGS }} -isysroot {{ cross }}/sdk -DSDL_MAIN_HANDLED -mios-simulator-version-min=13.0",
+            "{{ CFLAGS }} "
+            "-isysroot {{ cross }}/sdk "
+            "-DSDL_MAIN_HANDLED "
+            "-mios-simulator-version-min=13.0",
         )
 
         c.env(
             "LDFLAGS",
-            "{{ LDFLAGS }} -isysroot {{ cross }}/sdk -mios-simulator-version-min=13.0 -lmockrt",
+            "{{ LDFLAGS }} "
+            "-isysroot {{ cross }}/sdk "
+            "-mios-simulator-version-min=13.0 "
+            "-lmockrt",
         )
 
-        c.var("cmake_system_name", "iOS")
+        c.var("cmake_system_name", "Darwin")
         c.var("cmake_system_processor", "aarch64")
+
         c.var(
             "cmake_args",
-            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' "
-            "-DCMAKE_SYSROOT={{ cross }}/sdk",
+            "-DCMAKE_SYSROOT={{ cross }}/sdk "
+            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
         )
-
     # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
 
     #     llvm(
