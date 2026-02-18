@@ -48,7 +48,8 @@ sudo apt-get install -y \
     libavcodec-dev libavformat-dev \
     libswresample-dev libswscale-dev libfreetype6-dev libfribidi-dev libsdl2-dev \
     libsdl2-image-dev libsdl2-gfx-dev libsdl2-mixer-dev libsdl2-ttf-dev libjpeg-dev \
-    libharfbuzz-dev libassimp-dev
+    libharfbuzz-dev libassimp-dev python-is-python3 llvm-15 llvm-15-tools \
+    gcc-x86-64-linux-gnu
 
 mkdir -p $ROOT/tmp
 
@@ -62,6 +63,8 @@ sudo tar xzf "$BASE/prebuilt/clang_rt.tar.gz" -C /usr/lib/clang/18/lib/
 
 # UV
 wget -qO- https://astral.sh/uv/install.sh | sh
+
+export PATH="$HOME/.local/bin:$PATH"
 
 # Install the programs and virtualenvs.
 

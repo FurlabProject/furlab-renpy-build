@@ -1,0 +1,49 @@
+name: Build RenPy ARM
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ furlab-engine ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
+
+      - name: Cache renpy tmp
+        uses: actions/cache@v4
+        with:
+          path: tmp
+          key: renpy-tmp-${{ runner.os }}-${{ hashFiles('prepare.sh', 'build.sh') }}
+          restore-keys: |
+            renpy-tmp-${{ runner.os }}-
+
+      - name: Enable ccache
+        run: |
+          echo "max_size = 5.0G" > ~/.ccache/ccache.conf
+          ccache --zero-stats
+
+      - run: chmod +x prepare.sh build.sh
+      - run: ./prepare.sh
+      - run: ./build.sh
+
+      - name: Show ccache stats
+        run: ccache --show-stats
+
+      - name: Archive
+        run: tar -czf renios-prebuilt.tar.gz renpy/renios3/prototype/prebuilt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: renios-prebuilt
+          path: renios-prebuilt.tar.gz
