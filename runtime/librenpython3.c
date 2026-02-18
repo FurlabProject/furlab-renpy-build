@@ -605,9 +605,13 @@ int EXPORT renpy_embed_init(int argc, char **argv)
     PyConfig_SetBytesArgv(&config, argc, argv);
 
     status = Py_InitializeFromConfig(&config);
-    PyConfig_Clear(&config);
 
+    PyConfig_Clear(&config);
+    if(getenv("RENPY_DEBUG")){
+        printf("Py_InitializeFromConfig status: %s\n", status.err_msg);
+    }
     if (PyStatus_Exception(status))
+        printf("Failed to initialize Python: %s\n", status.err_msg);
         return -1;
 
     return 0;
@@ -618,7 +622,10 @@ int EXPORT renpy_embed_init(int argc, char **argv)
 int EXPORT renpy_embed_run(const char *main_py_path)
 {
     if (!Py_IsInitialized())
+    {
+        printf("Python is not initialized.\n");
         return -1;
+    }
 
     PyGILState_STATE gstate = PyGILState_Ensure();
 
@@ -627,6 +634,7 @@ int EXPORT renpy_embed_run(const char *main_py_path)
     {
         PyErr_Print();
         PyGILState_Release(gstate);
+        printf("Failed to import runpy.\n");
         return -2;
     }
 
@@ -636,6 +644,7 @@ int EXPORT renpy_embed_run(const char *main_py_path)
     {
         PyErr_Print();
         PyGILState_Release(gstate);
+        printf("Failed to get run_path from runpy.\n");
         return -3;
     }
 
@@ -652,6 +661,7 @@ int EXPORT renpy_embed_run(const char *main_py_path)
     {
         PyErr_Print();
         PyGILState_Release(gstate);
+        printf("Failed to run %s.\n", main_py_path);
         return -4;
     }
 
