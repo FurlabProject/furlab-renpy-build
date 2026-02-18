@@ -32,70 +32,84 @@ static char *pyname;
  */
 PyConfig config;
 
-
-
-
-static char *encode_utf8(wchar_t *s) {
+static char *encode_utf8(wchar_t *s)
+{
     char *rv;
     unsigned char *p;
     unsigned int ch;
 
-    rv = (char *) malloc(wcslen(s) * 4 + 1);
-    p = (unsigned char *) rv;
+    rv = (char *)malloc(wcslen(s) * 4 + 1);
+    p = (unsigned char *)rv;
 
-    while (*s) {
+    while (*s)
+    {
         ch = *s++;
 
-        if (ch < 0x80) {
+        if (ch < 0x80)
+        {
             *p++ = ch;
-        } else if (ch < 0x800) {
+        }
+        else if (ch < 0x800)
+        {
             *p++ = 0xC0 | (ch >> 6);
             *p++ = 0x80 | (ch & 0x3F);
-        } else if (ch < 0x10000) {
+        }
+        else if (ch < 0x10000)
+        {
             *p++ = 0xE0 | (ch >> 12);
             *p++ = 0x80 | ((ch >> 6) & 0x3F);
             *p++ = 0x80 | (ch & 0x3F);
-        } else {
+        }
+        else
+        {
             *p++ = 0xF0 | (ch >> 18);
             *p++ = 0x80 | ((ch >> 12) & 0x3F);
             *p++ = 0x80 | ((ch >> 6) & 0x3F);
             *p++ = 0x80 | (ch & 0x3F);
         }
-   }
+    }
 
     *p = 0;
 
     return rv;
 }
 
-
-static wchar_t *decode_utf8(const char *s) {
+static wchar_t *decode_utf8(const char *s)
+{
 
     wchar_t *rv;
-    unsigned char *p = (unsigned char *) s;
+    unsigned char *p = (unsigned char *)s;
     unsigned int ch;
 
-    rv = (wchar_t *) malloc(strlen(s) * sizeof(wchar_t) + sizeof(wchar_t));
+    rv = (wchar_t *)malloc(strlen(s) * sizeof(wchar_t) + sizeof(wchar_t));
     wchar_t *q = rv;
 
-    while (*p) {
+    while (*p)
+    {
         ch = *p++;
 
-        if (ch < 0x80) {
+        if (ch < 0x80)
+        {
             *q++ = ch;
-        } else if ((ch & 0xE0) == 0xC0) {
+        }
+        else if ((ch & 0xE0) == 0xC0)
+        {
             *q = (ch & 0x1F) << 6;
             ch = *p++;
             *q |= ch & 0x3F;
             q += 1;
-        } else if ((ch & 0xF0) == 0xE0) {
+        }
+        else if ((ch & 0xF0) == 0xE0)
+        {
             *q = (ch & 0x0F) << 12;
             ch = *p++;
             *q |= (ch & 0x3F) << 6;
             ch = *p++;
             *q |= ch & 0x3F;
             q += 1;
-        } else {
+        }
+        else
+        {
             *q = (ch & 0x07) << 18;
             ch = *p++;
             *q |= (ch & 0x3F) << 12;
@@ -112,20 +126,22 @@ static wchar_t *decode_utf8(const char *s) {
     return rv;
 }
 
-
-
 /**
  * Returns true if every character in a is equivalent to the characters in b0 or b1,
  * and the strings are of the same length. (This exists because strcasecmp considers
  * locale, and we don't want that.)
  */
-static int compare(const char *a, const char *b0, const char *b1) {
-    while (1) {
-        if (*a != *b0 && *a != *b1) {
+static int compare(const char *a, const char *b0, const char *b1)
+{
+    while (1)
+    {
+        if (*a != *b0 && *a != *b1)
+        {
             return 0;
         }
 
-        if (!*a) {
+        if (!*a)
+        {
             return 1;
         }
 
@@ -135,11 +151,11 @@ static int compare(const char *a, const char *b0, const char *b1) {
     }
 }
 
-
 /**
  * This takes argv0 and sets the exedir and pyname variables.
  */
-static void take_argv0(char *argv0) {
+static void take_argv0(char *argv0)
+{
 
     config.program_name = decode_utf8(argv0);
 
@@ -148,9 +164,11 @@ static void take_argv0(char *argv0) {
 
     // Basename. This seems to be broken in certain locales, so it's
     // reimplemented here.
-    char *exename = argv0 + strlen(argv0) -1;
-    while (exename > argv0) {
-        if (*exename == '\\' || *exename == '/') {
+    char *exename = argv0 + strlen(argv0) - 1;
+    while (exename > argv0)
+    {
+        if (*exename == '\\' || *exename == '/')
+        {
             *exename = 0;
             exename += 1;
             break;
@@ -160,21 +178,25 @@ static void take_argv0(char *argv0) {
 
     int pyname_size = strlen(exename) + strlen(".py") + 1;
 
-    pyname = (char *) malloc(pyname_size);
+    pyname = (char *)malloc(pyname_size);
     strncpy(pyname, exename, pyname_size);
 
 #ifdef MS_WINDOWS
 
     // This removes the .exe suffix.
-    if (strlen(pyname) > 4) {
-        if (compare(&pyname[strlen(pyname) - 4], ".exe", ".EXE")) {
+    if (strlen(pyname) > 4)
+    {
+        if (compare(&pyname[strlen(pyname) - 4], ".exe", ".EXE"))
+        {
             pyname[strlen(pyname) - 4] = 0;
         }
     }
 
     // This removes the -32 suffix, if it exists.
-    if (strlen(pyname) > 3) {
-        if (compare(&pyname[strlen(pyname) - 3], "-32", "-32")) {
+    if (strlen(pyname) > 3)
+    {
+        if (compare(&pyname[strlen(pyname) - 3], "-32", "-32"))
+        {
             pyname[strlen(pyname) - 3] = 0;
         }
     }
@@ -184,9 +206,12 @@ static void take_argv0(char *argv0) {
     strncat(pyname, ".py", pyname_size);
 
     exedir = strdup(argv0);
-    if (exename == argv0) {
+    if (exename == argv0)
+    {
         exedir = strdup(".");
-    } else {
+    }
+    else
+    {
         exedir = strdup(argv0);
     }
 
@@ -197,26 +222,31 @@ static void take_argv0(char *argv0) {
  * This combines the exedir and up to two components, and returns the result.
  * It returns a newly allocated string.
  */
-static char *join(const char *p1, const char *p2) {
+static char *join(const char *p1, const char *p2)
+{
     int size = strlen(exedir) + 1;
 
-    if (p1) {
+    if (p1)
+    {
         size += strlen(p1);
     }
 
-    if (p2) {
+    if (p2)
+    {
         size += strlen(p2);
     }
 
-    char *rv = (char *) malloc(size);
+    char *rv = (char *)malloc(size);
 
     strncpy(rv, exedir, size);
 
-    if (p1) {
+    if (p1)
+    {
         strncat(rv, p1, size);
     }
 
-    if (p2) {
+    if (p2)
+    {
         strncat(rv, p2, size);
     }
 
@@ -227,12 +257,14 @@ static char *join(const char *p1, const char *p2) {
  * This combines exedir with the optional p1 and p2. It returns 1 if the
  * file exists, and 0 otherwise.
  */
-static int exists(const char *p1, const char *p2) {
+static int exists(const char *p1, const char *p2)
+{
     char *path = join(p1, p2);
 
 #ifdef MS_WINDOWS
     wchar_t *wpath = decode_utf8(path);
-    if (wpath == NULL) {
+    if (wpath == NULL)
+    {
         return 0;
     }
     FILE *f = _wfopen(wpath, L"rb");
@@ -247,7 +279,8 @@ static int exists(const char *p1, const char *p2) {
 
     free(path);
 
-    if (f) {
+    if (f)
+    {
         fclose(f);
 
 #ifdef DEBUG_EXISTS
@@ -255,7 +288,9 @@ static int exists(const char *p1, const char *p2) {
 #endif
 
         return 1;
-    } else {
+    }
+    else
+    {
 #ifdef DEBUG_EXISTS
         printf(" does not exist.\n");
 #endif
@@ -268,16 +303,19 @@ static int exists(const char *p1, const char *p2) {
  * This tries to find a python home in p. If one hasn't been found already,
  * it calls Py_SetPythonHome.
  */
-static void find_python_home(const char *p) {
+static void find_python_home(const char *p)
+{
     static int found = 0;
 
-    if (found) {
+    if (found)
+    {
         return;
     }
 
 #ifdef WINDOWS
     if (exists(p, "\\lib\\" PYTHONVER "\\site.pyc") ||
-        exists(p, "\\lib\\python" PYCVER ".zip")) {
+        exists(p, "\\lib\\python" PYCVER ".zip"))
+    {
 
         found = 1;
         config.home = decode_utf8(join(p, NULL));
@@ -289,7 +327,8 @@ static void find_python_home(const char *p) {
     }
 #else
     if (exists(p, "/lib/" PYTHONVER "/site.pyc") ||
-        exists(p, "/lib/python" PYCVER ".zip")) {
+        exists(p, "/lib/python" PYCVER ".zip"))
+    {
 
         found = 1;
         config.home = decode_utf8(join(p, NULL));
@@ -305,7 +344,8 @@ static void find_python_home(const char *p) {
 /**
  * Searches for the python home directory in the platform-specific location.
  */
-static void search_python_home(void) {
+static void search_python_home(void)
+{
 
 #ifdef LINUX
     // Relative to the base directory.
@@ -342,36 +382,38 @@ static void search_python_home(void) {
     // Relative to the base directory.
     find_python_home("/base");
 #endif
-
 }
-
 
 /**
  * This finds the main python file. If it's been found, sets pyname to the
  * value that's been found.
  */
-static void find_pyname(const char *p) {
+static void find_pyname(const char *p)
+{
     static int found = 0;
 
-    if (found) {
+    if (found)
+    {
         return;
     }
 
-    if (exists(p, pyname)) {
+    if (exists(p, pyname))
+    {
         found = 1;
         pyname = join(p, pyname);
         return;
     }
 
-    if (exists(p, "main.py")) {
+    if (exists(p, "main.py"))
+    {
         found = 1;
         pyname = join(p, "main.py");
         return;
     }
 }
 
-
-static void search_pyname() {
+static void search_pyname()
+{
 
 #ifdef LINUX
     // Relative to the base directory.
@@ -413,8 +455,10 @@ static void search_pyname() {
  * This sets the RENPY_PLATFORM environment variable, if it hasn't been set
  * already.
  */
-static void set_renpy_platform() {
-    if (!getenv("RENPY_PLATFORM")) {
+static void set_renpy_platform()
+{
+    if (!getenv("RENPY_PLATFORM"))
+    {
         putenv("RENPY_PLATFORM=" PLATFORM "-" ARCH);
     }
 }
@@ -423,13 +467,17 @@ static void set_renpy_platform() {
  * Preinitializes Python, to enable UTF-8 mode.
  */
 
-static void preinitialize(int isolated, int argc, char **argv) {
+static void preinitialize(int isolated, int argc, char **argv)
+{
     PyPreConfig preconfig;
 
     // Initialize PreConfig.
-    if (isolated) {
+    if (isolated)
+    {
         PyPreConfig_InitIsolatedConfig(&preconfig);
-    } else {
+    }
+    else
+    {
         PyPreConfig_InitPythonConfig(&preconfig);
     }
 
@@ -441,24 +489,30 @@ static void preinitialize(int isolated, int argc, char **argv) {
     init_librenpy();
 
     // Initialize Config.
-    if (isolated) {
+    if (isolated)
+    {
         PyConfig_InitIsolatedConfig(&config);
-    } else {
+    }
+    else
+    {
         PyConfig_InitPythonConfig(&config);
     }
-
 }
 
 /**
  * The same, but use wchar_t arguments.
  */
-static void preinitialize_wide(int isolated, int argc, wchar_t **argv) {
+static void preinitialize_wide(int isolated, int argc, wchar_t **argv)
+{
     PyPreConfig preconfig;
 
     // Initialize PreConfig.
-    if (isolated) {
+    if (isolated)
+    {
         PyPreConfig_InitIsolatedConfig(&preconfig);
-    } else {
+    }
+    else
+    {
         PyPreConfig_InitPythonConfig(&preconfig);
     }
 
@@ -470,20 +524,22 @@ static void preinitialize_wide(int isolated, int argc, wchar_t **argv) {
     init_librenpy();
 
     // Initialize Config.
-    if (isolated) {
+    if (isolated)
+    {
         PyConfig_InitIsolatedConfig(&config);
-    } else {
+    }
+    else
+    {
         PyConfig_InitPythonConfig(&config);
     }
-
 }
-
 
 /**
  * This is the python command, and all it does is to modify the path to the
  * python library, and start python.
  */
-int EXPORT renpython_main(int argc, char **argv) {
+int EXPORT renpython_main(int argc, char **argv)
+{
 
     preinitialize(0, argc, argv);
 
@@ -497,7 +553,8 @@ int EXPORT renpython_main(int argc, char **argv) {
     return Py_BytesMain(argc, argv);
 }
 
-int EXPORT renpython_main_wide(int argc, wchar_t **argv) {
+int EXPORT renpython_main_wide(int argc, wchar_t **argv)
+{
 
     preinitialize_wide(0, argc, argv);
 
@@ -511,11 +568,11 @@ int EXPORT renpython_main_wide(int argc, wchar_t **argv) {
     return Py_Main(argc, argv);
 }
 
-
 /**
  * This is called from the launcher executable, to start Ren'Py running.
  */
-int EXPORT launcher_main(int argc, char **argv) {
+int EXPORT launcher_main(int argc, char **argv)
+{
 
 #ifdef WEB
     argv[0] = "./main";
@@ -534,12 +591,13 @@ int EXPORT launcher_main(int argc, char **argv) {
     search_pyname();
 
     // Figure out argv.
-    char **new_argv = (char **) alloca((argc + 1) * sizeof(char *));
+    char **new_argv = (char **)alloca((argc + 1) * sizeof(char *));
 
     new_argv[0] = argv[0];
     new_argv[1] = pyname;
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++)
+    {
         new_argv[i + 1] = argv[i];
     }
 
@@ -552,7 +610,8 @@ int EXPORT launcher_main(int argc, char **argv) {
 /**
  * This is called from the launcher executable, to start Ren'Py running.
  */
-int EXPORT launcher_main_wide(int argc, wchar_t **argv) {
+int EXPORT launcher_main_wide(int argc, wchar_t **argv)
+{
 
     preinitialize_wide(1, argc, argv);
 
@@ -567,12 +626,13 @@ int EXPORT launcher_main_wide(int argc, wchar_t **argv) {
     search_pyname();
 
     // Figure out argv.
-    wchar_t **new_argv = (wchar_t **) alloca((argc + 1) * sizeof(wchar_t *));
+    wchar_t **new_argv = (wchar_t **)alloca((argc + 1) * sizeof(wchar_t *));
 
     new_argv[0] = argv[0];
     new_argv[1] = decode_utf8(pyname);
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++)
+    {
         new_argv[i + 1] = argv[i];
     }
 
@@ -602,22 +662,24 @@ int EXPORT renpy_embed_init(int argc, char **argv)
     config.parse_argv = 0;
     config.install_signal_handlers = 0;
 
-    PyConfig_SetBytesArgv(&config, argc, argv);
+    status = PyConfig_SetBytesArgv(&config, argc, argv);
+    if (PyStatus_Exception(status))
+    {
+        PyConfig_Clear(&config);
+        return -1;
+    }
 
     status = Py_InitializeFromConfig(&config);
-
     PyConfig_Clear(&config);
-    if(getenv("RENPY_DEBUG")){
-        printf("Py_InitializeFromConfig status: %s\n", status.err_msg);
-    }
+
     if (PyStatus_Exception(status))
+    {
         printf("Failed to initialize Python: %s\n", status.err_msg);
         return -1;
+    }
 
     return 0;
 }
-
-
 // Call this each time you want to run a "main.py" for a specific game.
 int EXPORT renpy_embed_run(const char *main_py_path)
 {
@@ -665,6 +727,17 @@ int EXPORT renpy_embed_run(const char *main_py_path)
         return -4;
     }
 
+    if (!args || !kwargs)
+    {
+        PyErr_Print();
+        Py_XDECREF(args);
+        Py_XDECREF(kwargs);
+        Py_DECREF(run_path);
+        PyGILState_Release(gstate);
+        printf("Failed to build arguments for running %s.\n", main_py_path);
+        return -5;
+    }
+
     Py_DECREF(res);
 
     PyGILState_Release(gstate);
@@ -673,11 +746,48 @@ int EXPORT renpy_embed_run(const char *main_py_path)
 
 int EXPORT print_renpy_config(void)
 {
-    printf("Python Home: %ls\n", config.home);
-    printf("Python Path:\n");
-    for (Py_ssize_t i = 0; i < config.module_search_paths.length; i++)
+    if (!Py_IsInitialized())
     {
-        printf("  %ls\n", config.module_search_paths.items[i]);
+        printf("Python is not initialized.\n");
+        return -1;
     }
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    PyObject *sys = PyImport_ImportModule("sys");
+    if (!sys)
+    {
+        PyErr_Print();
+        PyGILState_Release(gstate);
+        return -2;
+    }
+
+    PyObject *home = PyObject_GetAttrString(sys, "base_prefix");
+    if (home && PyUnicode_Check(home))
+    {
+        printf("Python Home: %s\n", PyUnicode_AsUTF8(home));
+    }
+    Py_XDECREF(home);
+
+    PyObject *path = PyObject_GetAttrString(sys, "path");
+    if (path && PyList_Check(path))
+    {
+        printf("Python Path:\n");
+
+        Py_ssize_t len = PyList_Size(path);
+        for (Py_ssize_t i = 0; i < len; i++)
+        {
+            PyObject *item = PyList_GetItem(path, i); // borrowed ref
+            if (PyUnicode_Check(item))
+            {
+                printf("  %s\n", PyUnicode_AsUTF8(item));
+            }
+        }
+    }
+    Py_XDECREF(path);
+
+    Py_DECREF(sys);
+    PyGILState_Release(gstate);
+
     return 0;
 }

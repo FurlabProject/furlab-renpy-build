@@ -10,7 +10,20 @@ jobs:
     runs-on: ubuntu-22.04-arm
 
     steps:
+
       - uses: actions/checkout@v4
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Configure Git for GitLab
+        run: |
+          git config --global url."https://${{ secrets.GITLAB_USERNAME }}:${{ secrets.GITLAB_TOKEN }}@gitlab.com/".insteadOf "https://gitlab.com/"
+
+      - name: Update submodules
+        run: |
+          git submodule sync
+          git submodule update --init --recursive
 
       - name: Install ccache
         run: sudo apt-get update && sudo apt-get install -y ccache

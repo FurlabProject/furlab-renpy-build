@@ -1,0 +1,3 @@
+[submodule "tars"]
+	path = tars
+	url = https://gitlab.com/furlab/renpy-assets.git
