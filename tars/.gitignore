@@ -8,3 +8,5 @@ llvm-mingw-*
 MacOSX10.10.sdk.tar.bz2
 MacOSX12.3.sdk.tar.bz2
 steamworks_sdk_*.zip
+android-ndk-r27c-linux.zip
+MacOSX12.3.sdk.tar.xz

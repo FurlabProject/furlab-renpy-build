@@ -581,3 +581,93 @@ int EXPORT launcher_main_wide(int argc, wchar_t **argv) {
 
     return Py_RunMain();
 }
+
+int EXPORT renpy_embed_init(int argc, char **argv)
+{
+    if (Py_IsInitialized())
+        return 0;
+
+    PyPreConfig preconfig;
+    PyPreConfig_InitIsolatedConfig(&preconfig);
+    preconfig.utf8_mode = 1;
+    preconfig.use_environment = 0;
+
+    PyStatus status = Py_PreInitializeFromBytesArgs(&preconfig, argc, argv);
+    if (PyStatus_Exception(status))
+        return -1;
+
+    PyConfig config;
+    PyConfig_InitIsolatedConfig(&config);
+    config.user_site_directory = 0;
+    config.parse_argv = 0;
+    config.install_signal_handlers = 0;
+
+    PyConfig_SetBytesArgv(&config, argc, argv);
+
+    status = Py_InitializeFromConfig(&config);
+    PyConfig_Clear(&config);
+
+    if (PyStatus_Exception(status))
+        return -1;
+
+    return 0;
+}
+
+
+// Call this each time you want to run a "main.py" for a specific game.
+int EXPORT renpy_embed_run(const char *main_py_path)
+{
+    if (!Py_IsInitialized())
+        return -1;
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    PyObject *runpy = PyImport_ImportModule("runpy");
+    if (!runpy)
+    {
+        PyErr_Print();
+        PyGILState_Release(gstate);
+        return -2;
+    }
+
+    PyObject *run_path = PyObject_GetAttrString(runpy, "run_path");
+    Py_DECREF(runpy);
+    if (!run_path)
+    {
+        PyErr_Print();
+        PyGILState_Release(gstate);
+        return -3;
+    }
+
+    PyObject *args = Py_BuildValue("(s)", main_py_path);
+    PyObject *kwargs = Py_BuildValue("{s:s}", "run_name", "__main__");
+
+    PyObject *res = PyObject_Call(run_path, args, kwargs);
+
+    Py_DECREF(run_path);
+    Py_DECREF(args);
+    Py_DECREF(kwargs);
+
+    if (!res)
+    {
+        PyErr_Print();
+        PyGILState_Release(gstate);
+        return -4;
+    }
+
+    Py_DECREF(res);
+
+    PyGILState_Release(gstate);
+    return 0;
+}
+
+int EXPORT print_renpy_config(void)
+{
+    printf("Python Home: %ls\n", config.home);
+    printf("Python Path:\n");
+    for (Py_ssize_t i = 0; i < config.module_search_paths.length; i++)
+    {
+        printf("  %ls\n", config.module_search_paths.items[i]);
+    }
+    return 0;
+}
