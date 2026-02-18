@@ -15,7 +15,7 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: .ccache
           key: ccache-${{ runner.os }}-${{ github.ref_name }}
           restore-keys: |
             ccache-${{ runner.os }}-
@@ -30,7 +30,9 @@ jobs:
 
       - name: Enable ccache
         run: |
-          echo "max_size = 5.0G" > ~/.ccache/ccache.conf
+          mkdir -p .ccache
+          echo "max_size = 5.0G" > .ccache/ccache.conf
+          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
           ccache --zero-stats
 
       - run: chmod +x prepare.sh build.sh
