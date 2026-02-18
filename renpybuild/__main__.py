@@ -41,7 +41,7 @@ Platform("android", "arm64_v8a", "3")
 Platform("android", "armeabi_v7a", "3")
 
 Platform("ios", "arm64", "3")
-Platform("ios", "sim-x86_64", "3")
+# Platform("ios", "sim-x86_64", "3")
 Platform("ios", "sim-arm64", "3")
 
 Platform("web", "wasm", "3")

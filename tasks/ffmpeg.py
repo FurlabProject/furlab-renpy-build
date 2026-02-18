@@ -25,8 +25,8 @@ def build(c: Context):
         c.var("arch", "x86_64")
     elif c.arch == "aarch64":
         c.var("arch", "aarch64")
-    elif c.arch == "sim-x86_64":
-        c.var("arch", "x86_64")
+    # elif c.arch == "sim-x86_64":
+    #     c.var("arch", "x86_64")
     elif c.arch == "armv7l":
         c.var("arch", "armhf")
     elif c.arch == "arm64_v8a":

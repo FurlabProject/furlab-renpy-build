@@ -151,8 +151,8 @@ def build_environment(c):
         c.var("host_platform", "arm-apple-darwin")
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
         c.var("host_platform", "arm-apple-darwin")
-    elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
-        c.var("host_platform", "x86_64-apple-darwin")
+    # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
+    #     c.var("host_platform", "x86_64-apple-darwin")
     elif (c.platform == "web") and (c.arch == "wasm"):
         c.var("host_platform", "wasm32-unknown-emscripten")
 
@@ -169,8 +169,8 @@ def build_environment(c):
         c.var("sdl_host_platform", "arm-ios-darwin21")
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
         c.var("sdl_host_platform", "arm-ios-darwin21")
-    elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
-        c.var("sdl_host_platform", "x86_64-ios-darwin21")
+    # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
+    #     c.var("sdl_host_platform", "x86_64-ios-darwin21")
     else:
         c.var("sdl_host_platform", "{{ host_platform }}")
 
@@ -189,8 +189,8 @@ def build_environment(c):
         c.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
         c.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
-    elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
-        c.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
+    # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
+    #     c.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
 
     c.var("lipo", "llvm-lipo-15")
 
@@ -327,12 +327,32 @@ def build_environment(c):
             clang_args="-target arm64-apple-ios13.0 --sysroot {{cross}}/sdk",
         )
 
-        c.env("CFLAGS", "{{ CFLAGS }} -DSDL_MAIN_HANDLED -miphoneos-version-min=13.0")
-        c.env("LDFLAGS", "{{ LDFLAGS }} -miphoneos-version-min=13.0 -lmockrt")
+        c.env(
+            "CFLAGS",
+            "{{ CFLAGS }} "
+            "-isysroot {{ cross }}/sdk "
+            "-DSDL_MAIN_HANDLED "
+            "-miphoneos-version-min=13.0",
+        )
 
-        c.var("cmake_system_name", "Darwin")
+        c.env(
+            "LDFLAGS",
+            "{{ LDFLAGS }} "
+            "-isysroot {{ cross }}/sdk "
+            "-miphoneos-version-min=13.0 "
+            "-lmockrt",
+        )
+
+        c.var("cmake_system_name", "iOS")
         c.var("cmake_system_processor", "aarch64")
-        c.var("cmake_args", "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' -DCMAKE_SYSROOT={{ cross }}/sdk")
+
+        c.var(
+            "cmake_args",
+            "-DCMAKE_SYSROOT={{ cross }}/sdk "
+            "-DCMAKE_OSX_SYSROOT={{ cross }}/sdk "
+            "-DCMAKE_OSX_ARCHITECTURES=arm64 "
+            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
+        )
 
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
 
@@ -341,26 +361,57 @@ def build_environment(c):
             clang_args="-target arm64-apple-ios13.0-simulator --sysroot {{cross}}/sdk",
         )
 
-        c.env("CFLAGS", "{{ CFLAGS }} -DSDL_MAIN_HANDLED -mios-simulator-version-min=13.0")
-        c.env("LDFLAGS", "{{ LDFLAGS }} -mios-version-min=13.0 -lmockrt")
-
-        c.var("cmake_system_name", "Darwin")
-        c.var("cmake_system_processor", "aarch64")
-        c.var("cmake_args", "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' -DCMAKE_SYSROOT={{ cross }}/sdk")
-
-    elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
-
-        llvm(
-            c,
-            clang_args="-target x86_64-apple-ios13.0-simulator --sysroot {{cross}}/sdk",
+        c.env(
+            "CFLAGS",
+            "{{ CFLAGS }} -isysroot {{ cross }}/sdk -DSDL_MAIN_HANDLED -mios-simulator-version-min=13.0",
         )
 
-        c.env("CFLAGS", "{{ CFLAGS }} -DSDL_MAIN_HANDLED -mios-simulator-version-min=13.0")
-        c.env("LDFLAGS", "{{ LDFLAGS }} -mios-simulator-version-min=13.0 -lmockrt")
+        c.env(
+            "LDFLAGS",
+            "{{ LDFLAGS }} -isysroot {{ cross }}/sdk -mios-simulator-version-min=13.0 -lmockrt",
+        )
 
-        c.var("cmake_system_name", "Darwin")
-        c.var("cmake_system_processor", "x86_64")
-        c.var("cmake_args", "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' -DCMAKE_SYSROOT={{ cross }}/sdk")
+        c.var("cmake_system_name", "iOS")
+        c.var("cmake_system_processor", "aarch64")
+        c.var(
+            "cmake_args",
+            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' "
+            "-DCMAKE_SYSROOT={{ cross }}/sdk",
+        )
+
+    # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
+
+    #     llvm(
+    #         c,
+    #         clang_args="-target x86_64-apple-ios13.0-simulator --sysroot {{cross}}/sdk",
+    #     )
+
+    #     c.env(
+    #         "CFLAGS",
+    #         "{{ CFLAGS }} "
+    #         "-isysroot {{ cross }}/sdk "
+    #         "-DSDL_MAIN_HANDLED "
+    #         "-mios-simulator-version-min=13.0",
+    #     )
+
+    #     c.env(
+    #         "LDFLAGS",
+    #         "{{ LDFLAGS }} "
+    #         "-isysroot {{ cross }}/sdk "
+    #         "-mios-simulator-version-min=13.0 "
+    #         "-lmockrt",
+    #     )
+
+    #     c.var("cmake_system_name", "iOS")
+    #     c.var("cmake_system_processor", "x86_64")
+
+    #     c.var(
+    #         "cmake_args",
+    #         "-DCMAKE_SYSROOT={{ cross }}/sdk "
+    #         "-DCMAKE_OSX_SYSROOT={{ cross }}/sdk "
+    #         "-DCMAKE_OSX_ARCHITECTURES=x86_64 "
+    #         "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
+    #     )
 
     elif (c.platform == "web") and (c.arch == "wasm") and (c.name != "web"):
 

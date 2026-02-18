@@ -72,7 +72,8 @@ def build(c: Context):
     c.run("ln -s iPhoneOS14.0.sdk sdk")
 
 
-@task(kind="cross", platforms="ios", archs="sim-arm64,sim-x86_64")
+@task(kind="cross", platforms="ios", archs="sim-arm64")
+# @task(kind="cross", platforms="ios", archs="sim-arm64,sim-x86_64")
 def build(c: Context):
 
     c.clean("{{ cross }}")

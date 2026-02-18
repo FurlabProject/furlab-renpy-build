@@ -647,39 +647,36 @@ int EXPORT renpy_embed_init(int argc, char **argv)
     if (Py_IsInitialized())
         return 0;
 
-    PyPreConfig preconfig;
-    PyPreConfig_InitIsolatedConfig(&preconfig);
-    preconfig.utf8_mode = 1;
-    preconfig.use_environment = 0;
+    preinitialize(1, argc, argv);
 
-    PyStatus status = Py_PreInitializeFromBytesArgs(&preconfig, argc, argv);
-    if (PyStatus_Exception(status))
-        return -1;
+    set_renpy_platform();
+    take_argv0(argv[0]);
+    search_python_home();
 
-    PyConfig config;
-    PyConfig_InitIsolatedConfig(&config);
     config.user_site_directory = 0;
     config.parse_argv = 0;
     config.install_signal_handlers = 0;
 
-    status = PyConfig_SetBytesArgv(&config, argc, argv);
+    PyStatus status = PyConfig_SetBytesArgv(&config, argc, argv);
     if (PyStatus_Exception(status))
     {
+        printf("Failed to set argv: %s\n", status.err_msg);
         PyConfig_Clear(&config);
         return -1;
     }
 
     status = Py_InitializeFromConfig(&config);
-    PyConfig_Clear(&config);
 
     if (PyStatus_Exception(status))
     {
         printf("Failed to initialize Python: %s\n", status.err_msg);
+        PyConfig_Clear(&config);
         return -1;
     }
 
     return 0;
 }
+
 // Call this each time you want to run a "main.py" for a specific game.
 int EXPORT renpy_embed_run(const char *main_py_path)
 {
@@ -713,6 +710,17 @@ int EXPORT renpy_embed_run(const char *main_py_path)
     PyObject *args = Py_BuildValue("(s)", main_py_path);
     PyObject *kwargs = Py_BuildValue("{s:s}", "run_name", "__main__");
 
+    if (!args || !kwargs)
+    {
+        PyErr_Print();
+        Py_XDECREF(args);
+        Py_XDECREF(kwargs);
+        Py_DECREF(run_path);
+        PyGILState_Release(gstate);
+        printf("Failed to build arguments for running %s.\n", main_py_path);
+        return -4;
+    }
+
     PyObject *res = PyObject_Call(run_path, args, kwargs);
 
     Py_DECREF(run_path);
@@ -724,17 +732,6 @@ int EXPORT renpy_embed_run(const char *main_py_path)
         PyErr_Print();
         PyGILState_Release(gstate);
         printf("Failed to run %s.\n", main_py_path);
-        return -4;
-    }
-
-    if (!args || !kwargs)
-    {
-        PyErr_Print();
-        Py_XDECREF(args);
-        Py_XDECREF(kwargs);
-        Py_DECREF(run_path);
-        PyGILState_Release(gstate);
-        printf("Failed to build arguments for running %s.\n", main_py_path);
         return -5;
     }
 
