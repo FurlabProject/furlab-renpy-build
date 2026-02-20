@@ -674,69 +674,128 @@ int EXPORT renpy_embed_init(int argc, char **argv)
         return -1;
     }
 
+    PyEval_SaveThread();
+
     return 0;
 }
 
 // Call this each time you want to run a "main.py" for a specific game.
 int EXPORT renpy_embed_run(const char *main_py_path)
 {
-    if (!Py_IsInitialized())
-    {
+    if (!Py_IsInitialized()) {
         printf("Python is not initialized.\n");
         return -1;
     }
 
     PyGILState_STATE gstate = PyGILState_Ensure();
 
-    PyObject *runpy = PyImport_ImportModule("runpy");
-    if (!runpy)
-    {
+    // 🔹 Force GC before purging modules
+    PyGC_Collect();
+
+    // --- Purge Ren'Py-related modules ---
+    PyObject *sys = PyImport_ImportModule("sys");
+    if (!sys) {
         PyErr_Print();
         PyGILState_Release(gstate);
-        printf("Failed to import runpy.\n");
         return -2;
+    }
+
+    PyObject *modules = PyObject_GetAttrString(sys, "modules");
+    if (!modules) {
+        PyErr_Print();
+        Py_DECREF(sys);
+        PyGILState_Release(gstate);
+        return -3;
+    }
+
+    const char *prefixes[] = {
+        "renpy",
+        "pygame_sdl2",
+        "pygame",
+        "pyobjus",
+        NULL
+    };
+
+    PyObject *keys = PyMapping_Keys(modules);
+    Py_ssize_t n = PyList_Size(keys);
+
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject *k = PyList_GetItem(keys, i);  // borrowed
+        const char *ks = PyUnicode_AsUTF8(k);
+        if (!ks) continue;
+
+        for (int p = 0; prefixes[p]; p++) {
+            const char *pre = prefixes[p];
+            size_t L = strlen(pre);
+            if (strncmp(ks, pre, L) == 0 && (ks[L] == 0 || ks[L] == '.')) {
+                PyMapping_DelItemString(modules, ks);
+                break;
+            }
+        }
+    }
+
+    Py_DECREF(keys);
+    Py_DECREF(modules);
+    Py_DECREF(sys);
+
+    // --- Now execute engine main.py ---
+
+    PyObject *runpy = PyImport_ImportModule("runpy");
+    if (!runpy) {
+        PyErr_Print();
+        PyGILState_Release(gstate);
+        return -4;
     }
 
     PyObject *run_path = PyObject_GetAttrString(runpy, "run_path");
     Py_DECREF(runpy);
-    if (!run_path)
-    {
+    if (!run_path) {
         PyErr_Print();
         PyGILState_Release(gstate);
-        printf("Failed to get run_path from runpy.\n");
-        return -3;
+        return -5;
     }
 
     PyObject *args = Py_BuildValue("(s)", main_py_path);
     PyObject *kwargs = Py_BuildValue("{s:s}", "run_name", "__main__");
 
-    if (!args || !kwargs)
-    {
+     PyObject *res = PyObject_Call(run_path, args, kwargs);
+
+    // Clean up references
+    Py_XDECREF(run_path);
+    Py_XDECREF(args);
+    Py_XDECREF(kwargs);
+
+    if (!res) {
+        if (PyErr_ExceptionMatches(PyExc_SystemExit)) {
+            PyObject *ptype, *pvalue, *ptraceback;
+            PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+            PyErr_Clear();
+
+            int exit_code = 0;
+            // Extract the integer from sys.exit(n)
+            if (pvalue && PyObject_HasAttrString(pvalue, "code")) {
+                PyObject *code = PyObject_GetAttrString(pvalue, "code");
+                if (code && PyLong_Check(code)) {
+                    exit_code = (int)PyLong_AsLong(code);
+                }
+                Py_XDECREF(code);
+            }
+
+            Py_XDECREF(ptype);
+            Py_XDECREF(pvalue);
+            Py_XDECREF(ptraceback);
+
+            PyGILState_Release(gstate);
+            return exit_code; // Returns 0, 1, 2, etc. to Swift
+        }
+
+        // It was a real crash, not a sys.exit
         PyErr_Print();
-        Py_XDECREF(args);
-        Py_XDECREF(kwargs);
-        Py_DECREF(run_path);
         PyGILState_Release(gstate);
-        printf("Failed to build arguments for running %s.\n", main_py_path);
-        return -4;
-    }
-
-    PyObject *res = PyObject_Call(run_path, args, kwargs);
-
-    Py_DECREF(run_path);
-    Py_DECREF(args);
-    Py_DECREF(kwargs);
-
-    if (!res)
-    {
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        printf("Failed to run %s.\n", main_py_path);
-        return -5;
+        return -6; // Signal "Python Error" to Swift
     }
 
     Py_DECREF(res);
-
     PyGILState_Release(gstate);
     return 0;
 }

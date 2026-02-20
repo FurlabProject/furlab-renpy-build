@@ -25,40 +25,41 @@ jobs:
           git submodule sync
           git submodule update --init --recursive
 
-      - name: Install ccache
-        run: sudo apt-get update && sudo apt-get install -y ccache
+      # - name: Install ccache
+      #   run: sudo apt-get update && sudo apt-get install -y ccache
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: .ccache
-          key: ccache-${{ runner.os }}-arm-${{ hashFiles('**/*.c', '**/*.h', 'prepare.sh', 'build-ios.sh') }}
-          restore-keys: |
-            ccache-${{ runner.os }}-arm-
+      # - name: Cache ccache
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: .ccache
+      #     key: ccache-${{ runner.os }}-arm-${{ hashFiles('**/*.c', '**/*.h', 'prepare.sh', 'build.sh') }}
+      #     restore-keys: |
+      #       ccache-${{ runner.os }}-arm-
 
-      - name: Cache renpy tmp
-        uses: actions/cache@v4
-        with:
-          path: tmp
-          key: renpy-tmp-${{ runner.os }}-arm-${{ hashFiles('prepare.sh', 'build-ios.sh') }}
-          restore-keys: |
-            renpy-tmp-${{ runner.os }}-arm-
+      # - name: Cache renpy tmp
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: tmp
+      #     key: renpy-tmp-${{ runner.os }}-arm-${{ hashFiles('prepare.sh', 'build.sh') }}
+      #     restore-keys: |
+      #       renpy-tmp-${{ runner.os }}-arm-
 
-      - name: Enable ccache
-        run: |
-          mkdir -p .ccache
-          echo "max_size = 5.0G" > .ccache/ccache.conf
-          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
-          echo "CC=ccache clang" >> $GITHUB_ENV
-          echo "CXX=ccache clang++" >> $GITHUB_ENV
-          ccache --zero-stats
+      # - name: Enable ccache
+      #   run: |
+      #     mkdir -p .ccache
+      #     echo "max_size = 5.0G" > .ccache/ccache.conf
+      #     echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+      #     echo "CC=ccache clang" >> $GITHUB_ENV
+      #     echo "CXX=ccache clang++" >> $GITHUB_ENV
+      #     ccache --zero-stats
 
-      - run: chmod +x prepare.sh build-ios.sh
+      - run: chmod +x prepare.sh build.sh
       - run: ./prepare.sh
-      - run: ./build-ios.sh
+      - run: ./base.sh
+      - run: ./build.sh --platform ios
 
-      - name: Show ccache stats
-        run: ccache --show-stats
+      # - name: Show ccache stats
+      #   run: ccache --show-stats
 
       - name: Archive
         run: tar -czf renios-prebuilt.tar.gz renpy/renios3/prototype/prebuilt
