@@ -3,7 +3,9 @@
 #include <libgen.h>
 #include <stdlib.h>
 #include <wchar.h>
+#include <stdbool.h>
 #include "Python.h"
+#include "renpy_embed.h"
 
 /**
  * A small note on encoding: This does as much as it can in UTF-8 mode,
@@ -27,6 +29,7 @@ static char *exedir;
 /* The name of the .py file to use */
 static char *pyname;
 
+static PyThreadState *g_main_tstate = NULL;
 /**
  * The Python config object.
  */
@@ -380,7 +383,7 @@ static void search_python_home(void)
 
 #ifdef IOS
     // Relative to the base directory.
-    find_python_home("/base");
+    find_python_home("/Runtime");
 #endif
 }
 
@@ -447,7 +450,7 @@ static void search_pyname()
 #endif
 
 #ifdef IOS
-    find_pyname("/base/");
+    find_pyname("/Runtime/");
 #endif
 }
 
@@ -487,6 +490,8 @@ static void preinitialize(int isolated, int argc, char **argv)
     Py_PreInitializeFromBytesArgs(&preconfig, argc, argv);
 
     init_librenpy();
+
+    printf("Preinitialized Python with UTF-8 mode enabled.\n");
 
     // Initialize Config.
     if (isolated)
@@ -644,10 +649,10 @@ int EXPORT launcher_main_wide(int argc, wchar_t **argv)
 
 int EXPORT renpy_embed_init(int argc, char **argv)
 {
-    if (Py_IsInitialized())
-        return 0;
+    if (!Py_IsInitialized())
+        preinitialize(1, argc, argv);
 
-    preinitialize(1, argc, argv);
+    // return 0;
 
     set_renpy_platform();
     take_argv0(argv[0]);
@@ -674,176 +679,7 @@ int EXPORT renpy_embed_init(int argc, char **argv)
         return -1;
     }
 
-    PyEval_SaveThread();
-
-    return 0;
-}
-
-// Call this each time you want to run a "main.py" for a specific game.
-int EXPORT renpy_embed_run(const char *main_py_path)
-{
-    if (!Py_IsInitialized()) {
-        printf("Python is not initialized.\n");
-        return -1;
-    }
-
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
-    // 🔹 Force GC before purging modules
-    PyGC_Collect();
-
-    // --- Purge Ren'Py-related modules ---
-    PyObject *sys = PyImport_ImportModule("sys");
-    if (!sys) {
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        return -2;
-    }
-
-    PyObject *modules = PyObject_GetAttrString(sys, "modules");
-    if (!modules) {
-        PyErr_Print();
-        Py_DECREF(sys);
-        PyGILState_Release(gstate);
-        return -3;
-    }
-
-    const char *prefixes[] = {
-        "renpy",
-        "pygame_sdl2",
-        "pygame",
-        "pyobjus",
-        NULL
-    };
-
-    PyObject *keys = PyMapping_Keys(modules);
-    Py_ssize_t n = PyList_Size(keys);
-
-    for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *k = PyList_GetItem(keys, i);  // borrowed
-        const char *ks = PyUnicode_AsUTF8(k);
-        if (!ks) continue;
-
-        for (int p = 0; prefixes[p]; p++) {
-            const char *pre = prefixes[p];
-            size_t L = strlen(pre);
-            if (strncmp(ks, pre, L) == 0 && (ks[L] == 0 || ks[L] == '.')) {
-                PyMapping_DelItemString(modules, ks);
-                break;
-            }
-        }
-    }
-
-    Py_DECREF(keys);
-    Py_DECREF(modules);
-    Py_DECREF(sys);
-
-    // --- Now execute engine main.py ---
-
-    PyObject *runpy = PyImport_ImportModule("runpy");
-    if (!runpy) {
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        return -4;
-    }
-
-    PyObject *run_path = PyObject_GetAttrString(runpy, "run_path");
-    Py_DECREF(runpy);
-    if (!run_path) {
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        return -5;
-    }
-
-    PyObject *args = Py_BuildValue("(s)", main_py_path);
-    PyObject *kwargs = Py_BuildValue("{s:s}", "run_name", "__main__");
-
-     PyObject *res = PyObject_Call(run_path, args, kwargs);
-
-    // Clean up references
-    Py_XDECREF(run_path);
-    Py_XDECREF(args);
-    Py_XDECREF(kwargs);
-
-    if (!res) {
-        if (PyErr_ExceptionMatches(PyExc_SystemExit)) {
-            PyObject *ptype, *pvalue, *ptraceback;
-            PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-            PyErr_Clear();
-
-            int exit_code = 0;
-            // Extract the integer from sys.exit(n)
-            if (pvalue && PyObject_HasAttrString(pvalue, "code")) {
-                PyObject *code = PyObject_GetAttrString(pvalue, "code");
-                if (code && PyLong_Check(code)) {
-                    exit_code = (int)PyLong_AsLong(code);
-                }
-                Py_XDECREF(code);
-            }
-
-            Py_XDECREF(ptype);
-            Py_XDECREF(pvalue);
-            Py_XDECREF(ptraceback);
-
-            PyGILState_Release(gstate);
-            return exit_code; // Returns 0, 1, 2, etc. to Swift
-        }
-
-        // It was a real crash, not a sys.exit
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        return -6; // Signal "Python Error" to Swift
-    }
-
-    Py_DECREF(res);
-    PyGILState_Release(gstate);
-    return 0;
-}
-
-int EXPORT print_renpy_config(void)
-{
-    if (!Py_IsInitialized())
-    {
-        printf("Python is not initialized.\n");
-        return -1;
-    }
-
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
-    PyObject *sys = PyImport_ImportModule("sys");
-    if (!sys)
-    {
-        PyErr_Print();
-        PyGILState_Release(gstate);
-        return -2;
-    }
-
-    PyObject *home = PyObject_GetAttrString(sys, "base_prefix");
-    if (home && PyUnicode_Check(home))
-    {
-        printf("Python Home: %s\n", PyUnicode_AsUTF8(home));
-    }
-    Py_XDECREF(home);
-
-    PyObject *path = PyObject_GetAttrString(sys, "path");
-    if (path && PyList_Check(path))
-    {
-        printf("Python Path:\n");
-
-        Py_ssize_t len = PyList_Size(path);
-        for (Py_ssize_t i = 0; i < len; i++)
-        {
-            PyObject *item = PyList_GetItem(path, i); // borrowed ref
-            if (PyUnicode_Check(item))
-            {
-                printf("  %s\n", PyUnicode_AsUTF8(item));
-            }
-        }
-    }
-    Py_XDECREF(path);
-
-    Py_DECREF(sys);
-    PyGILState_Release(gstate);
+    // g_main_tstate = PyEval_SaveThread();
 
     return 0;
 }

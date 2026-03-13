@@ -24,6 +24,21 @@ def build(c: Context):
     {{ runtime }}/librenpython{{ c.python }}.c
     """)
 
+@task(kind="python", always=True, platforms="ios")
+def build_ios(c: Context):
+
+    c.run("""
+    {{ CC }} {{ CFLAGS }}
+
+    -DPLATFORM=\\"{{ c.platform }}\\"
+    -DARCH=\\"{{ c.arch }}\\"
+    -DPYTHONVER=\\"{{ pythonver }}\\"
+    -DPYCVER=\\"{{ pycver }}\\"
+    -D{{ c.platform|upper }}
+
+    -c -o renpy_embed.o
+    {{ runtime }}/renpy_embed.c
+    """)
 
 @task(kind="python", always=True, platforms="android")
 def build_android(c: Context):
@@ -465,7 +480,7 @@ def link_windows(c: Context):
 def link_ios(c: Context):
 
     c.unlink("librenpython.a")
-    c.run("""{{ AR }} -r librenpython.a librenpython.o""")
+    c.run("""{{ AR }} -r librenpython.a librenpython.o renpy_embed.o""")
     c.run("""install -d {{install}}/lib""")
     c.run("""install librenpython.a {{ install }}/lib""")
 

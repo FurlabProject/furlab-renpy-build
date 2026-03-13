@@ -1,115 +1,182 @@
 from renpybuild.context import Context
 from renpybuild.task import task
-import sys
 import os
 import subprocess
 import re
 
+EXPORT = "{{ root }}/renpy-ios-runtime"
 
-@task(kind="host-python")
-def copytree(c: Context):
-    c.copytree("{{ root }}/renios", "{{ renios }}")
-
-    c.rmtree("{{ renios }}/prototype/prebuilt")
-    c.rmtree("{{ renios }}/prototype/base")
-    c.rmtree("{{ renios }}/prototype/prototype.xcodeproj/project.xcworkspace")
-    c.rmtree("{{ renios }}/prototype/prototype.xcodeproj/xcshareddata")
-    c.rmtree("{{ renios }}/prototype/prototype.xcodeproj/xcuserdata")
-
-    c.run("""find {{ renios }}/prototype/ -name ._* -delete""")
-
+# ---------------------------------------------------------
+# Verify SDK metadata
+# ---------------------------------------------------------
 
 def check_sdk(name, paths):
 
     for d in paths:
         fn = d / name
 
-        p = subprocess.run([ "llvm-otool-15", "-l", f"{fn}"], capture_output=True)
+        p = subprocess.run(
+            ["llvm-otool-15", "-l", f"{fn}"],
+            capture_output=True
+        )
 
         obj = None
 
         for l in p.stdout.decode("utf-8").split("\n"):
+
             if re.match(r'.*\.a\(.*\)', l):
                 if obj is not None and not ("asm" in obj):
                     raise Exception(f"{obj} does not have a minos defined, in {fn}")
-
                 obj = l
 
             if "minos" in l:
                 obj = None
 
-def lipo(c: Context, namefilter):
 
-    paths = [
+# ---------------------------------------------------------
+# Copy static libraries per platform
+# ---------------------------------------------------------
+
+def copy_libs(c: Context, src, dst, namefilter):
+
+    c.run(f"install -d {dst}")
+
+    for i in src.glob("*.a"):
+
+        if i.is_symlink():
+            continue
+
+        name = i.name
+
+        if not namefilter(name):
+            continue
+
+        check_sdk(name, [src])
+
+        print(f"(Copy) {src}/{name} → {c.expand(dst)}/{name}")
+
+        c.run(f"cp {src}/{name} {dst}/{name}")
+        os.chmod(c.path(f"{dst}/{name}"), 0o755)
+
+    print("ROOT:", c.expand("{{ root }}"))
+    print("TMP:", c.expand("{{ tmp }}"))
+    print("RENIOS:", c.expand("{{ renios }}"))
+
+def ensure_export_root(c: Context):
+    c.run(f"install -d {EXPORT}")
+
+def build_platform_libs(c: Context, namefilter):
+
+    ensure_export_root(c)
+
+    copy_libs(
+        c,
         c.path("{{ tmp }}/install.ios-arm64/lib"),
-        ]
+        f"{EXPORT}/ios-arm64",
+        namefilter
+    )
 
-    c.run("install -d {{ renios }}/prototype/prebuilt/release")
-
-    for i in paths[0].glob("*.a"):
-        if i.is_symlink():
-            continue
-
-        i = i.name
-
-        if not namefilter(i):
-            continue
-
-        check_sdk(i, paths)
-
-        print("(Release) Lipo and strip:", i)
-
-        c.var("i", i)
-        c.run("""
-        {{ lipo }}
-        -create
-{% for p in paths %}
-        {{ p }}/{{ i }}
-{% endfor %}
-        -output {{ renios }}/prototype/prebuilt/release/{{ i }}
-        """, paths=paths)
-
-        os.chmod(c.path("{{ renios }}/prototype/prebuilt/release/{{ i }}"), 0o755)
-
-    # debug.
-
-    paths = [
-        # c.path("{{ tmp }}/install.ios-sim-x86_64/lib"),
+    copy_libs(
+        c,
         c.path("{{ tmp }}/install.ios-sim-arm64/lib"),
-        ]
+        f"{EXPORT}/ios-simulator-arm64",
+        namefilter
+    )
 
-    c.run("install -d {{ renios }}/prototype/prebuilt/debug")
 
-    for i in paths[0].glob("*.a"):
-        if i.is_symlink():
-            continue
+# ---------------------------------------------------------
+# Copy headers
+# ---------------------------------------------------------
 
-        i = i.name
+@task(kind="host-python", platforms="ios", always=True)
+def copy_headers(c: Context):
 
-        if not namefilter(i):
-            continue
+    src = "{{ tmp }}/install.ios-arm64/include"
+    dst = f"{EXPORT}/include"
 
-        check_sdk(i, paths)
+    print("Copying headers")
 
-        print("(Debug) Lipo and strip:", i)
+    if c.path(src).exists():
+        c.clean(dst)
+        c.copytree(src, dst)
 
-        c.var("i", i)
-        c.run("""
-        {{ lipo }}
-        -create
-{% for p in paths %}
-        {{ p }}/{{ i }}
-{% endfor %}
-        -output {{ renios }}/prototype/prebuilt/debug/{{ i }}
-        """, paths=paths)
 
-        os.chmod(c.path("{{ renios }}/prototype/prebuilt/debug/{{ i }}"), 0o755)
+# ---------------------------------------------------------
+# Merge libraries into libRenpyRuntime.a
+# ---------------------------------------------------------
 
+def build_runtime_lib(c: Context, platform_dir):
+
+    src = c.path(f"{EXPORT}/{platform_dir}")
+    out = src / "libRenpyRuntime.a"
+
+    if out.exists():
+        out.unlink()
+
+    libs = [str(i) for i in src.glob("*.a") if i.name != "libRenpyRuntime.a"]
+
+    if not libs:
+        print(f"No libraries found for {platform_dir}, skipping")
+        return
+
+    print(f"Merging {len(libs)} libraries for {platform_dir}")
+
+    cmd = ["llvm-ar", "rc", str(out)] + libs
+    subprocess.run(cmd, check=True)
+
+    subprocess.run(["llvm-ranlib", str(out)], check=True)
+
+
+@task(kind="host-python", platforms="ios", always=True)
+def build_runtime(c: Context):
+
+    build_runtime_lib(c, "ios-arm64")
+    build_runtime_lib(c, "ios-simulator-arm64")
+
+
+# ---------------------------------------------------------
+# Build XCFramework
+# ---------------------------------------------------------
+
+import platform
+
+@task(kind="host-python", platforms="ios", always=True)
+def build_xcframework(c: Context):
+
+    if platform.system() != "Darwin":
+        print("Skipping XCFramework creation (not running on macOS)")
+        return
+
+    base = c.path(EXPORT)
+
+    ios = base / "ios-arm64/libRenpyRuntime.a"
+    sim = base / "ios-simulator-arm64/libRenpyRuntime.a"
+    headers = base / "include"
+
+    output = base / "RenpyRuntime.xcframework"
+
+    if output.exists():
+        subprocess.run(["rm", "-rf", str(output)], check=True)
+
+    subprocess.run([
+        "xcodebuild",
+        "-create-xcframework",
+        "-library", str(ios),
+        "-headers", str(headers),
+        "-library", str(sim),
+        "-headers", str(headers),
+        "-output", str(output)
+    ], check=True)
+
+
+# ---------------------------------------------------------
+# Main build tasks
+# ---------------------------------------------------------
 
 @task(kind="host-python", platforms="ios")
-def lipo_all(c: Context):
+def build_all(c: Context):
 
-    python = "libpython{}.".format(c.python)
+    python = f"libpython{c.python}."
 
     def namefilter(i):
 
@@ -118,20 +185,37 @@ def lipo_all(c: Context):
 
         return True
 
-    lipo(c, namefilter)
+    build_platform_libs(c, namefilter)
+
 
 @task(kind="host-python", platforms="ios", always=True)
-def lipo_renpy(c: Context):
-    lipo(c, lambda n : "librenpy" in n)
+def build_renpy(c: Context):
 
+    build_platform_libs(c, lambda n: "librenpy" in n)
+
+
+# ---------------------------------------------------------
+# Unpack MetalANGLE
+# ---------------------------------------------------------
 
 @task(kind="host-python", platforms="ios", always=True)
 def unpack_metalangle(c: Context):
+
     c.clean("{{ renios }}/prototype/Frameworks")
     c.chdir("{{ renios }}/prototype/Frameworks")
 
     c.run("tar xaf {{ source }}/MetalANGLE.xcframework.tar.gz")
 
+
+# ---------------------------------------------------------
+# Copy back to renpy tree
+# ---------------------------------------------------------
+
 @task(kind="host-python", platforms="ios", always=True, pythons="2")
 def copyback(c: Context):
-    c.copytree("{{ renios }}/prototype/prebuilt", "{{ root }}/renios/prototype/prebuilt")
+
+    c.copytree(
+        "{{ renios }}/prototype/prebuilt",
+        "{{ root }}/renios/prototype/prebuilt"
+    )
+

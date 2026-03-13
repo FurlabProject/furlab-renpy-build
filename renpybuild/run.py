@@ -192,7 +192,16 @@ def build_environment(c):
     # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
     #     c.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
 
-    c.var("lipo", "llvm-lipo-15")
+
+    # Other c.var definitions
+    if c.platform == "ios":
+        c.var("os", "ios")
+        c.var("platform_name", "iphoneos")
+    elif c.platform == "mac":
+        c.var("os", "darwin")
+        c.var("platform_name", "macosx")
+
+    c.var("lipo", "llvm-lipo-18")
 
 
     if c.kind == "host" or c.kind == "host-python" or c.kind == "cross":
@@ -348,8 +357,14 @@ def build_environment(c):
 
         c.var(
             "cmake_args",
+            "-DCMAKE_CROSSCOMPILING=TRUE "
             "-DCMAKE_SYSROOT={{ cross }}/sdk "
-            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
+            "-DCMAKE_OSX_SYSROOT={{ cross }}/sdk "
+            "-DAPPLE=1 -DIOS=1 "
+            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' "
+
+            "-DCMAKE_MACOSX_BUNDLE=OFF "
+            "-DBUILD_SHARED_LIBS=OFF "
         )
     elif (c.platform == "ios") and (c.arch == "sim-arm64"):
 
@@ -374,13 +389,18 @@ def build_environment(c):
             "-lmockrt",
         )
 
+
         c.var("cmake_system_name", "Darwin")
         c.var("cmake_system_processor", "aarch64")
 
         c.var(
             "cmake_args",
+            "-DCMAKE_CROSSCOMPILING=TRUE "
             "-DCMAKE_SYSROOT={{ cross }}/sdk "
-            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk'",
+            "-DCMAKE_OSX_SYSROOT={{ cross }}/sdk "
+            "-DAPPLE=1 -DIOS=1 -DPLATFORM_IOS=1 "
+            "-DCMAKE_FIND_ROOT_PATH='{{ install }};{{ cross }}/sdk' "
+            "-DCMAKE_MACOSX_BUNDLE=OFF"
         )
     # elif (c.platform == "ios") and (c.arch == "sim-x86_64"):
 
