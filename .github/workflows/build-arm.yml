@@ -54,7 +54,7 @@ jobs:
       #     ccache --zero-stats
 
       - run: chmod +x prepare.sh build.sh
-      - run: ./prepare.sh
+      - run: ./prepare_gitlab.sh
       - run: ./base.sh
       - run: ./build.sh --platform ios
 
@@ -62,7 +62,7 @@ jobs:
       #   run: ccache --show-stats
 
       - name: Archive
-        run: tar -czf renios-prebuilt.tar.gz renpy/renios3/prototype/prebuilt
+        run: tar -czf renios-prebuilt.tar.gz renpy-ios-runtime
 
       - uses: actions/upload-artifact@v4
         with:
