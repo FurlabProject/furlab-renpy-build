@@ -53,6 +53,7 @@ jobs:
       #     echo "CXX=ccache clang++" >> $GITHUB_ENV
       #     ccache --zero-stats
 
+
       - run: chmod +x prepare.sh build.sh
       - run: ./prepare_gitlab.sh
       - run: ./base.sh

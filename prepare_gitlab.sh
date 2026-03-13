@@ -7,6 +7,8 @@ ROOT=$(cd $(dirname $0); pwd)
 REFS=$ROOT
 BASE="$ROOT"
 
+sudo apt-get update && sudo apt-get upgrade -y
+
 # Needed to build things.
 sudo apt-get install -y git build-essential ccache unzip autoconf autoconf-archive automake libtool-bin
 
