@@ -3,12 +3,15 @@ set -e
 
 ROOT="$(dirname "$(realpath "$0")")"
 cd "$ROOT"
+source $HOME/.local/bin/env
 
 TMP_DIR="$ROOT/tmp"
 EXPORT_DIR="$ROOT/renpy-ios-runtime"
 
 CLEAN=0
 ARGS=()
+
+
 
 # Parse arguments
 for arg in "$@"; do

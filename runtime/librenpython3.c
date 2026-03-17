@@ -383,7 +383,7 @@ static void search_python_home(void)
 
 #ifdef IOS
     // Relative to the base directory.
-    find_python_home("/Runtime");
+    find_python_home("/FurlabRuntime.bundle/Runtime");
 #endif
 }
 
@@ -450,7 +450,7 @@ static void search_pyname()
 #endif
 
 #ifdef IOS
-    find_pyname("/Runtime/");
+    find_pyname("/FurlabRuntime.bundle/Runtime");
 #endif
 }
 
