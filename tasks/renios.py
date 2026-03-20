@@ -112,68 +112,69 @@ def copy_headers(c: Context):
 # Merge libraries into libRenpyRuntime.a
 # ---------------------------------------------------------
 
-# def build_runtime_lib(c: Context, platform_dir):
+def build_runtime_lib(c: Context, platform_dir):
 
-#     src = c.path(f"{EXPORT}/{platform_dir}")
-#     out = src / "libRenpyRuntime.a"
+    src = c.path(f"{EXPORT}/{platform_dir}")
+    out = src / "libRenpyRuntime.a"
 
-#     if out.exists():
-#         out.unlink()
+    if out.exists():
+        out.unlink()
 
-#     libs = [str(i) for i in src.glob("*.a") if i.name != "libRenpyRuntime.a"]
+    libs = [str(i) for i in src.glob("*.a") if i.name != "libRenpyRuntime.a"]
 
-#     if not libs:
-#         print(f"No libraries found for {platform_dir}, skipping")
-#         return
+    if not libs:
+        print(f"No libraries found for {platform_dir}, skipping")
+        return
 
-#     print(f"Merging {len(libs)} libraries for {platform_dir}")
+    print(f"Merging {len(libs)} libraries for {platform_dir}")
 
-#     cmd = ["llvm-ar", "rc", str(out)] + libs
-#     subprocess.run(cmd, check=True)
+    cmd = ["llvm-ar", "rc", str(out)] + libs
+    subprocess.run(cmd, check=True)
 
-#     subprocess.run(["llvm-ranlib", str(out)], check=True)
+    subprocess.run(["llvm-ranlib", str(out)], check=True)
 
 
-# @task(kind="host-python", platforms="ios", always=True)
-# def build_runtime(c: Context):
+@task(kind="host-python", platforms="ios", always=True)
+def build_runtime(c: Context):
 
-#     build_runtime_lib(c, "ios-arm64")
-#     build_runtime_lib(c, "ios-simulator-arm64")
+    build_runtime_lib(c, "ios-arm64")
+    build_runtime_lib(c, "ios-arm64-simulator")
+    build_runtime_lib(c, "ios-x86_64-simulator")
 
 
 # ---------------------------------------------------------
 # Build XCFramework
 # ---------------------------------------------------------
 
-# import platform
+import platform
 
-# @task(kind="host-python", platforms="ios", always=True)
-# def build_xcframework(c: Context):
+@task(kind="host-python", platforms="ios", always=True)
+def build_xcframework(c: Context):
 
-#     if platform.system() != "Darwin":
-#         print("Skipping XCFramework creation (not running on macOS)")
-#         return
+    if platform.system() != "Darwin":
+        print("Skipping XCFramework creation (not running on macOS)")
+        return
 
-#     base = c.path(EXPORT)
+    base = c.path(EXPORT)
 
-#     ios = base / "ios-arm64/libRenpyRuntime.a"
-#     sim = base / "ios-simulator-arm64/libRenpyRuntime.a"
-#     headers = base / "include"
+    ios = base / "ios-arm64/libRenpyRuntime.a"
+    sim = base / "ios-arm64-simulator/libRenpyRuntime.a"
+    headers = base / "include"
 
-#     output = base / "RenpyRuntime.xcframework"
+    output = base / "RenpyRuntime.xcframework"
 
-#     if output.exists():
-#         subprocess.run(["rm", "-rf", str(output)], check=True)
+    if output.exists():
+        subprocess.run(["rm", "-rf", str(output)], check=True)
 
-#     subprocess.run([
-#         "xcodebuild",
-#         "-create-xcframework",
-#         "-library", str(ios),
-#         "-headers", str(headers),
-#         "-library", str(sim),
-#         "-headers", str(headers),
-#         "-output", str(output)
-#     ], check=True)
+    subprocess.run([
+        "xcodebuild",
+        "-create-xcframework",
+        "-library", str(ios),
+        "-headers", str(headers),
+        "-library", str(sim),
+        "-headers", str(headers),
+        "-output", str(output)
+    ], check=True)
 
 
 # ---------------------------------------------------------

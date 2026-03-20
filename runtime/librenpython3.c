@@ -383,7 +383,7 @@ static void search_python_home(void)
 
 #ifdef IOS
     // Relative to the base directory.
-    find_python_home("/FurlabRuntime.bundle/Runtime");
+    find_python_home("/Runtime");
 #endif
 }
 
@@ -450,7 +450,7 @@ static void search_pyname()
 #endif
 
 #ifdef IOS
-    find_pyname("/FurlabRuntime.bundle/Runtime");
+    find_pyname("/Runtime");
 #endif
 }
 
@@ -652,7 +652,6 @@ int EXPORT renpy_embed_init(int argc, char **argv)
     if (!Py_IsInitialized())
         preinitialize(1, argc, argv);
 
-    // return 0;
 
     set_renpy_platform();
     take_argv0(argv[0]);
@@ -678,8 +677,6 @@ int EXPORT renpy_embed_init(int argc, char **argv)
         PyConfig_Clear(&config);
         return -1;
     }
-
-    // g_main_tstate = PyEval_SaveThread();
 
     return 0;
 }
